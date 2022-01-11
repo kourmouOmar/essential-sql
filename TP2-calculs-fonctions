@@ -1,0 +1,238 @@
+## Calculs arithmétiques
+
+Calculer pour la commande numéro 10251, pour chaque produit acheté dans celle-ci, le montant de la ligne d'achat en incluant la remise (stockée en proportion dans la table). Afficher donc :
+
+- le prix unitaire,
+- la remise,
+- la quantité,
+- le montant de la remise,
+- le montant à payer pour ce produit
+
+```
+SELECT PrixUnit,
+        ROUND(Remise * 100) || "%" as Remise,
+        Qte as "Quantité",
+        ROUND(PrixUnit * Remise * Qte, 2) as "Montant Remise",
+        ROUND(PrixUnit * Qte * (1 - Remise), 2) as "Montant à payer"
+    FROM DetailCommande
+    WHERE NoCom = 10251;
+```
+
+## Fonctions sur chaînes de caractères
+
+Dans une même requête, sur la table `Client`,
+
+- Concaténer les champs Adresse, Ville, CodePostal et Pays dans un nouveau champ nommé Adresse complète, pour avoir : `Adresse, CodePostal Ville, Pays`
+- Extraire les deux derniers caractères des codes clients
+- Mettre en minuscule le nom des sociétés
+- Remplacer le terme "marketing" par "mercatique" dans la fonction des contacts
+- Indiquer la présence du terme "Chef" dans la fonction du contact
+
+```
+SELECT CodeCli, Societe,
+        Adresse || ", " || CodePostal || " " || Ville || ", " || Pays as Adresse,
+        SUBSTR(CodeCli, LENGTH(CodeCli) - 1, 2) as "Derniers caractères",
+        LOWER(Societe) as "Nom",
+        REPLACE(Fonction, "marketing", "mercatique") as Fonction,
+        CASE
+            WHEN INSTR(UPPER(Fonction), "CHEF") > 0 THEN "C'est un chef"
+            ELSE ""
+        END AS "Chef ?"
+    FROM Client;
+```
+
+## Fonctions sur les dates
+
+#### Afficher le jour de la semaine en lettre pour toutes les dates de commande
+
+voir plus bas, dans Exercices complémentaires, la correction complète
+
+```
+SELECT DateCom, STRFTIME("%w", DateCom) 
+    FROM Commande;
+```
+
+#### Compléter en affichant "week-end" pour les samedi et dimanche, et "semaine" pour les autres jour
+
+voir plus bas, dans Exercices complémentaires
+
+#### Calculer le nombre de jours entre la date de la commande (DateCom) et la date butoir de livraison (ALivAvant), pour chaque commande
+
+```
+SELECT NoCom, DateCom, ALivAvant,
+        JULIANDAY(ALivAvant) - JULIANDAY(DateCom) AS "Délai livraison"
+    FROM Commande;
+```
+
+#### On souhaite aussi contacter les clients 1 an, 1 mois et 1 semaine après leur commande. Calculer les dates correspondantes pour chaque commande
+
+```
+SELECT NoCom, DateCom,
+        DATE(DateCom, "+1 year", "+1 month", "+7 day")
+    FROM Commande;
+```
+
+## Traitement conditionnel
+
+#### A partir de la table Produit, afficher "Produit non disponible" lorsque l'attribut Indisponible vaut 1, et "Produit disponible" sinon.
+
+```
+SELECT RefProd, NomProd,
+        CASE Indisponible
+            WHEN 1 THEN "Produit non disponible"
+            ELSE "Produit disponible"
+        END AS "Disponibilité"
+    FROM Produit;
+```
+
+#### Dans la table `DetailCommande`, indiquer les infos suivantes en fonction de la remise
+
+- si elle vaut 0 : "aucune remise"
+- si elle vaut entre 1 et 5% (inclus) : "petite remise"
+- si elle vaut entre 6 et 15% (inclus) : "remise modérée"
+- sinon :"remise importante"
+
+```
+SELECT NoCom, Refprod, Remise,
+        CASE  
+            WHEN Remise == 0 THEN "aucune remise"
+            WHEN Remise <= 0.05 THEN "petite remise"
+            WHEN Remise <= 0.15 THEN "remise modérée"
+            ELSE "remise importante"
+        END as "Remise"
+    FROM DetailCommande;
+```
+
+#### Indiquer pour les commandes envoyées en retard (date d'envoi DateEnv supérieure (ou égale) à la date butoir ALivAvant)
+
+```
+SELECT NoCom, ALivAvant, DateEnv,
+        CASE  
+            WHEN ALivAvant <= DateEnv THEN "envoi tardif"
+            WHEN DateEnv IS NULL THEN "à envoyer"
+            ELSE "envoi ok"
+        END as "Envoi"
+    FROM Commande;
+```
+
+
+## Exercices complémentaires
+
+Je corrige ici les 2 premières questions de la fiche 3, dans lesquelles nous avions besoin du traitement conditionnel vu dans la fiche 4.
+
+#### Afficher le jour de la semaine en lettre pour toutes les dates de commande
+
+```
+SELECT DateCom, 
+        CASE STRFTIME("%w", DateCom) 
+            WHEN "0" THEN "Dimanche"
+            WHEN "1" THEN "Lundi"
+            WHEN "2" THEN "Mardi"
+            WHEN "3" THEN "Mercredi"
+            WHEN "4" THEN "Jeudi"
+            WHEN "5" THEN "Vendredi"
+            WHEN "6" THEN "Samedi"
+        END as "Jour de la semaine"
+    FROM Commande;
+```
+
+#### Compléter en affichant "week-end" pour les samedi et dimanche, et "semaine" pour les autres jour
+
+```
+SELECT DateCom, 
+        CASE STRFTIME("%w", DateCom) 
+            WHEN "0" THEN "Dimanche"
+            WHEN "1" THEN "Lundi"
+            WHEN "2" THEN "Mardi"
+            WHEN "3" THEN "Mercredi"
+            WHEN "4" THEN "Jeudi"
+            WHEN "5" THEN "Vendredi"
+            WHEN "6" THEN "Samedi"
+        END as "Jour de la semaine",
+        CASE 
+            WHEN STRFTIME("%w", DateCom) IN ("0", "6") THEN "Week-end"
+            ELSE "Semaine"
+        END as "Week-end"
+    FROM Commande;
+```
+
+#### Exercice 1
+
+> Récupérer l'année de naissance et l'année d'embauche des employés
+
+Dans la table `Employe`, les dates de naissance et d'embauche sont stockées au format `VARCHAR2`, c'est-à-dire en chaîne de caractères. Il faut donc extraire l'année à l'aide de la fonction `SUBSTR()`, en indiquant le début de la chaîne à extraire et sa taille.
+
+```sql
+SELECT Nom, Prenom,
+        SUBSTR(DateNaissance, 6, 4) AS "Année naissance", 
+        SUBSTR(DateEmbauche, 6, 4) AS "Année embauche"
+    FROM Employe;
+```
+
+#### Exercice 2
+
+> Calculer à l'aide de la requête précédente l'âge d'embauche et le nombre d'années dans l'entreprise
+
+A la requête précédente, on ajoute le calcul de l'âge d'embauche en soustrayant l'année de naissance à l'année d'embauche. Même si la fonction `STRFTIME()` renvoie une chaîne de caractère, le moteur transforme celle-ci en entier pour pouvoir réaliser la soustraction.
+
+Pour avoir l'année courante, plutôt que de la coder en *dur* (en mettant `2016`), on la calcule à partir de la date courante (`"now"` dans `STRFTIME()`).
+
+```sql
+SELECT Nom, Prenom,
+        SUBSTR(DateNaissance, 6, 4) AS "Année naissance", 
+        SUBSTR(DateEmbauche, 6, 4) AS "Année embauche",
+        SUBSTR(DateEmbauche, 6, 4) - SUBSTR(DateNaissance, 6, 4) AS "Age embauche",
+        STRFTIME("%Y", "now") - SUBSTR(DateEmbauche, 6, 4) AS "Années en entreprise"
+    FROM Employe;
+```
+
+#### Exercice 3
+
+> Afficher le prix unitaire original, la remise en pourcentage, le montant de la remise et le prix unitaire avec remise (tous deux arrondis aux centimes), pour les lignes de commande dont la remise est strictement supérieure à 10%
+
+La restriction à faire ici est très simple, puisqu'on vérifie uniquement que la remise est supérieure à `.1` (et donc 10%). 
+
+Ensuite, en plus du prix unitaire, on ajoute trois informations
+
+- la remise en pourcentage (on multiplie par 100, on transforme en entier pour ne pas avoir `.0`, et on concatène avec le caractère `"%"`)
+- le montant de la remise, arrondi à deux décimales
+- le montant du produit après remise, arrondi aussi à deux décimales
+
+```sql
+SELECT PrixUnit, 
+        CAST(Remise * 100 AS INTEGER) || " %" AS Remise,
+        ROUND(PrixUnit * Remise, 2) AS "Montant remise",
+        ROUND(PrixUnit * (1 - Remise), 2) AS "Prix avec remise"
+    FROM DetailCommande
+    WHERE Remise > .1;
+```
+
+#### Exercice 4
+
+> Calculer le délai de livraison (en jours) pour les commandes dont l'envoi est après la date butoir, ainsi que le nombre de jours de retard
+
+Comme indiqué dans le cours, les comparaisons de date se font très facilement avec les opérateurs classiques. La restriction à faire ici est de vérifier que la date d'envoi (`DateEnv`)  est postérieure à la date limite de livraison (`ALivAvant`). 
+
+Ensuite, pour compter le nombre de jours entre deux dates, le plus simple est de passer par le jour julien. C'est un jour de référence, à partir duquel la fonction `JULIANDAY()` compte le nombre de jours jusqu'à la date passée en paramètre. Ceci permet donc de faire des différences en jours entre dates. 
+
+```sql
+SELECT NoCom, CodeCli, DateCom, ALivAvant, DateEnv,
+        JULIANDAY(DateEnv) - JULIANDAY(DateCom) AS "Délai livraison",
+        JULIANDAY(DateEnv) - JULIANDAY(ALivAvant) AS "Nb jours de retard"
+    FROM Commande
+    WHERE DateEnv > ALivAvant;
+```
+
+#### Exercice 5
+
+> Rechercher les sociétés clientes, dont le nom de la société contient le nom du contact de celle-ci
+
+Dans cet exercice, nous souhaitons chercher les sociétés pour lesquels le nom de contact est présent dans le nom de la société. Pour cela, nous utilisons bien évidemment un `LIKE` avec le `"%"`. 
+
+Mais la difficulté réside dans la création de la chaîne contenant le nom du contact avec un `"%"` avant et après. Pour cela, nous utilisons l'opérateur de concaténation de chaînes de caractères `||`.
+
+```sql
+SELECT Societe, Contact
+    FROM Client
+    WHERE Societe LIKE "%" || Contact || "%";
+```
